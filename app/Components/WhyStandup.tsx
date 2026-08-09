@@ -28,9 +28,9 @@ export const WhyStandupSection: React.FC = () => {
 ];
 
   return (
-    <section>
+    <section className="px-[80px]">
       {/* Section Header */}
-      <div className="text-center mb-12 mt-12">
+      <div className=" text-center mb-12 mt-12">
         <p className="text-sm font-semibold uppercase tracking-widest text-[#ea580c] mb-4">
           Features
         </p>

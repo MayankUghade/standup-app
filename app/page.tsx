@@ -6,8 +6,7 @@ import { Footer } from "./components/Footer";
 
 export default function Home() {
   return (
-    <div className="px-[80px] mb-5">
-      <Navbar/>
+    <div className=" mb-5">
     <HeroSection/>
     <WhyStandupSection/>
     <Footer/>

@@ -15,7 +15,7 @@ export const HeroSection = () => {
   ];
 
   return (
-    <section className="pt-6 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <section className="pt-6 pb-16 px-4 sm:px-6 lg:px-[80px] mx-auto">
       {/* Hero Container with Warm Canyon Background Image */}
       <div className="relative rounded-[32px] overflow-hidden shadow-2xl border border-[#e2d5c1]">
         {/* Canyon Background Image */}

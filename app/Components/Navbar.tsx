@@ -5,7 +5,7 @@ export const Navbar = async () => {
   const session = await auth();
 
   return (
-    <nav className="flex items-center justify-between px-10 py-5">
+    <nav className="px-[80px] flex items-center justify-between px-10 py-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.06)]">
       <div className="flex items-center gap-2">
         {/* Fixed SVG with proper sizing */}
         <svg 
@@ -27,47 +27,50 @@ export const Navbar = async () => {
 
       {/* Authentication */}
       {session?.user ? (
-        <div className="flex items-center gap-3">
-          {/* Profile */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             {session.user.image && (
               <img
                 src={session.user.image}
                 alt={session.user.name ?? "Profile"}
-                className="h-8 w-8 rounded-full"
+                className="h-9 w-9 rounded-full border border-[#e5ded3]"
               />
             )}
 
-            <span className="text-sm font-medium text-neutral-800">
-              {session.user.name}
-            </span>
-          </div>
+            <div className="hidden sm:block text-right">
+              <p className="text-sm font-medium">
+                {session.user.name}
+              </p>
+              <p className="text-xs text-[#78716c]">
+                {session.user.email}
+              </p>
+            </div>
 
-          {/* Sign out */}
-          <form
-            action={async () => {
-              "use server";
-              await signOut();
-            }}
-          >
-            <Button
-              type="submit"
-              className="cursor-pointer rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100 hover:text-neutral-900"
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/" });
+              }}
             >
-              Sign out
-            </Button>
-          </form>
-        </div>
+              <button
+                type="submit"
+                className="rounded-lg border border-[#d6cec2] px-4 py-2 text-sm font-medium text-[#57534e] transition hover:bg-[#f0ebe4]"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
       ) : (
         <form
           action={async () => {
             "use server";
-            await signIn("github");
+                await signIn("github", {
+      redirectTo: "/dashboard",
+    });
           }}
         >
           <button
             type="submit"
-            className="cursor-pointer rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
+            className="cursor-pointer rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 cursot-pointer"
           >
             Sign up with GitHub
           </button>
