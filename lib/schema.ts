@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, primaryKey, date, jsonb } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "next-auth/adapters";
 
 export const users = pgTable("user", {
@@ -50,3 +50,26 @@ export const verificationTokens = pgTable(
   },
   (vt) => ({ compositePk: primaryKey({ columns: [vt.identifier, vt.token] }) })
 );
+
+  export const rawCommits = pgTable("raw_commits", {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id").references(() => users.id),
+    repo: text("repo").notNull(),
+    sha: text("sha").notNull().unique(),
+    message: text("message").notNull(),
+    filesChanged: integer("files_changed").default(0),
+    committedAt: timestamp("committed_at", { withTimezone: true }).notNull(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true }).defaultNow(),
+  });
+  
+  export const digests = pgTable("digests", {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id").references(() => users.id),
+    digestDate: date("digest_date").notNull(),
+    summariesJson: jsonb("summaries_json").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow(),
+  });

@@ -1,10 +1,16 @@
 import Image from "next/image";
-import { Navbar } from "./Components/Navbar";
+import { Navbar } from "./components/Navbar";
+import { HeroSection } from "./components/HeroSection";
+import { WhyStandupSection } from "./components/WhyStandup";
+import { Footer } from "./components/Footer";
 
 export default function Home() {
   return (
-    <div>
+    <div className="px-[80px] mb-5">
       <Navbar/>
-      this is soo cool</div>
+    <HeroSection/>
+    <WhyStandupSection/>
+    <Footer/>
+    </div>
   );
 }

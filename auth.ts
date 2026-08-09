@@ -5,6 +5,10 @@ import { db } from "./lib/dbClient";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db),
-  providers: [GitHub],
+  providers: [
+    GitHub({
+      authorization: { params: { scope: "read:user user:email repo" } },
+    }),
+  ],
   session: { strategy: "database" },
 });
