@@ -37,8 +37,10 @@ export async function listActiveRepos(token: string): Promise<RepoSummary[]> {
   }));
 }
 
-async function listRecentCommits(login: string, token: string, repo: string, since: string) {
-  const url = `${GITHUB_API}/repos/${login}/${repo}/commits?author=${login}&since=${since}`;
+// GitHub's commits endpoint supports BOTH since and until — that's what
+// makes an arbitrary window possible, not just "last N hours from now."
+async function listCommitsInRange(login: string, token: string, repo: string, since: string, until: string) {
+  const url = `${GITHUB_API}/repos/${login}/${repo}/commits?author=${login}&since=${since}&until=${until}`;
   const res = await fetch(url, { headers: headers(token) });
   if (!res.ok) {
     if (res.status === 409) return [];
@@ -63,14 +65,16 @@ export interface GithubCommit {
   committedAt: Date;
 }
 
-export async function fetchTodaysCommits(token: string): Promise<GithubCommit[]> {
+// Now takes an explicit window instead of assuming "last 24h from now."
+export async function fetchCommitsInRange(token: string, since: Date, until: Date): Promise<GithubCommit[]> {
   const login = await getAuthenticatedLogin(token);
   const repos = await listActiveRepos(token);
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const sinceIso = since.toISOString();
+  const untilIso = until.toISOString();
 
   const allCommits: GithubCommit[] = [];
   for (const repo of repos) {
-    const commits = await listRecentCommits(login, token, repo.name, since);
+    const commits = await listCommitsInRange(login, token, repo.name, sinceIso, untilIso);
     for (const c of commits as any[]) {
       const detail = await getCommitDetail(login, token, repo.name, c.sha);
       allCommits.push({

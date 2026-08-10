@@ -1,6 +1,6 @@
 import { db } from "./dbClient";
 import { rawCommits, digests } from "./schema";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 
 interface Commit {
   repo: string;
@@ -39,12 +39,11 @@ function classifyTheme(message: string): string {
   return "general";
 }
 
-export async function getTodaysClusters(userId: string): Promise<Cluster[]> {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+export async function getClustersInRange(userId: string, since: Date, until: Date): Promise<Cluster[]> {
   const rows = await db
     .select()
     .from(rawCommits)
-    .where(and(eq(rawCommits.userId, userId), gte(rawCommits.committedAt, since)))
+    .where(and(eq(rawCommits.userId, userId), gte(rawCommits.committedAt, since), lte(rawCommits.committedAt, until)))
     .orderBy(rawCommits.repo, rawCommits.committedAt);
 
   const clusterMap = new Map<string, Cluster>();
@@ -57,8 +56,14 @@ export async function getTodaysClusters(userId: string): Promise<Cluster[]> {
   return Array.from(clusterMap.values());
 }
 
+// Now returns the saved row (with its generated id) instead of nothing —
+// the API route needs that id to build a "download PDF" link.
 export async function markDigestSent(userId: string, date: string, summaries: unknown) {
-  await db.insert(digests).values({ userId, digestDate: date, summariesJson: summaries });
+  const [row] = await db
+    .insert(digests)
+    .values({ userId, digestDate: date, summariesJson: summaries })
+    .returning();
+  return row;
 }
 
 export async function getRecentDigests(userId: string, limit = 10) {
@@ -68,4 +73,25 @@ export async function getRecentDigests(userId: string, limit = 10) {
     .where(eq(digests.userId, userId))
     .orderBy(sql`${digests.digestDate} desc`)
     .limit(limit);
+}
+
+// For the auto-popup: "is there already a report for today?"
+export async function getDigestForDate(userId: string, date: string) {
+  const rows = await db
+    .select()
+    .from(digests)
+    .where(and(eq(digests.userId, userId), eq(digests.digestDate, date)))
+    .orderBy(sql`${digests.sentAt} desc`)
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+// For the "Download PDF" button — fetch the exact stored report by id,
+// so downloading never re-runs the LLM.
+export async function getDigestById(userId: string, id: string) {
+  const rows = await db
+    .select()
+    .from(digests)
+    .where(and(eq(digests.userId, userId), eq(digests.id, id)));
+  return rows[0] ?? null;
 }
