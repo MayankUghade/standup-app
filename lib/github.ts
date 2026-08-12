@@ -1,90 +1,173 @@
 const GITHUB_API = "https://api.github.com";
 
-function headers(token: string) {
-  return {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
+export async function githubFetch<T>(
+  token: string,
+  endpoint: string,
+  options?: RequestInit
+): Promise<T> {
+  const url = `${GITHUB_API}${endpoint}`;
+
+  console.log("GitHub request:", url);
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...options?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `GitHub API Error ${response.status} on ${url}: ${error}`
+    );
+  }
+
+  return response.json() as Promise<T>;
 }
 
-export interface RepoSummary {
+// -------------------------
+// GitHub User
+// -------------------------
+
+export type GithubUser = {
+  id: number;
+  login: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string;
+  html_url: string;
+};
+
+export async function getGithubUser(token: string) {
+  return githubFetch<GithubUser>(
+    token,
+    "/user"
+  );
+}
+
+
+// -------------------------
+// Repositories
+// -------------------------
+
+export type GithubRepo = {
+  id: number;
   name: string;
-  fullName: string;
+  full_name: string;
   private: boolean;
-  pushedAt: string;
+  html_url: string;
+  description: string | null;
+  language: string | null;
+  default_branch: string;
+  pushed_at: string | null;
+};
+
+export async function getGithubRepos(token: string) {
+  return githubFetch<GithubRepo[]>(
+    token,
+    "/user/repos?per_page=100&sort=pushed"
+  );
 }
 
-async function getAuthenticatedLogin(token: string): Promise<string> {
-  const res = await fetch(`${GITHUB_API}/user`, { headers: headers(token) });
-  if (!res.ok) throw new Error(`GitHub /user fetch failed: ${res.status}`);
-  const data = await res.json();
-  return data.login as string;
-}
 
-export async function listActiveRepos(token: string): Promise<RepoSummary[]> {
-  const login = await getAuthenticatedLogin(token);
-  const res = await fetch(`${GITHUB_API}/users/${login}/repos?sort=pushed&per_page=20`, {
-    headers: headers(token),
-  });
-  if (!res.ok) throw new Error(`GitHub repos fetch failed: ${res.status}`);
-  const repos = await res.json();
-  return (repos as any[]).map((r) => ({
-    name: r.name,
-    fullName: r.full_name,
-    private: r.private,
-    pushedAt: r.pushed_at,
-  }));
-}
+// -------------------------
+// Commits
+// -------------------------
 
-// GitHub's commits endpoint supports BOTH since and until — that's what
-// makes an arbitrary window possible, not just "last N hours from now."
-async function listCommitsInRange(login: string, token: string, repo: string, since: string, until: string) {
-  const url = `${GITHUB_API}/repos/${login}/${repo}/commits?author=${login}&since=${since}&until=${until}`;
-  const res = await fetch(url, { headers: headers(token) });
-  if (!res.ok) {
-    if (res.status === 409) return [];
-    throw new Error(`GitHub commits fetch failed for ${repo}: ${res.status}`);
-  }
-  return res.json();
-}
-
-async function getCommitDetail(login: string, token: string, repo: string, sha: string) {
-  const res = await fetch(`${GITHUB_API}/repos/${login}/${repo}/commits/${sha}`, {
-    headers: headers(token),
-  });
-  if (!res.ok) return { files: [] };
-  return res.json();
-}
-
-export interface GithubCommit {
-  repo: string;
+export type GithubCommit = {
   sha: string;
-  message: string;
-  filesChanged: number;
-  committedAt: Date;
+
+  commit: {
+    message: string;
+
+    author: {
+      name: string | null;
+      email: string | null;
+      date: string | null;
+    } | null;
+  };
+
+  html_url: string;
+
+  author: {
+    login: string;
+    avatar_url: string;
+  } | null;
+};
+
+export async function getGithubCommits(
+  token: string,
+  owner: string,
+  repo: string,
+  since?: Date,
+  until?: Date
+) {
+  const params = new URLSearchParams({
+    per_page: "100",
+  });
+
+  if (since) {
+    params.set("since", since.toISOString());
+  }
+
+  if (until) {
+    params.set("until", until.toISOString());
+  }
+
+  return githubFetch<GithubCommit[]>(
+    token,
+    `/repos/${owner}/${repo}/commits?${params.toString()}`
+  );
 }
 
-// Now takes an explicit window instead of assuming "last 24h from now."
-export async function fetchCommitsInRange(token: string, since: Date, until: Date): Promise<GithubCommit[]> {
-  const login = await getAuthenticatedLogin(token);
-  const repos = await listActiveRepos(token);
-  const sinceIso = since.toISOString();
-  const untilIso = until.toISOString();
 
-  const allCommits: GithubCommit[] = [];
-  for (const repo of repos) {
-    const commits = await listCommitsInRange(login, token, repo.name, sinceIso, untilIso);
-    for (const c of commits as any[]) {
-      const detail = await getCommitDetail(login, token, repo.name, c.sha);
-      allCommits.push({
-        repo: repo.name,
-        sha: c.sha,
-        message: c.commit.message.split("\n")[0],
-        filesChanged: detail.files?.length ?? 0,
-        committedAt: new Date(c.commit.author.date),
-      });
-    }
-  }
-  return allCommits;
+// -------------------------
+// Pull Requests
+// -------------------------
+
+export type GithubPullRequest = {
+  id: number;
+  number: number;
+  title: string;
+  body: string | null;
+  state: "open" | "closed";
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  merged_at: string | null;
+
+  user: {
+    login: string;
+    avatar_url: string;
+  };
+};
+
+export async function getGithubPullRequests(
+  token: string,
+  owner: string,
+  repo: string
+) {
+  return githubFetch<GithubPullRequest[]>(
+    token,
+    `/repos/${owner}/${repo}/pulls?state=all&per_page=100`
+  );
+}
+
+
+// -------------------------
+// Activity
+// -------------------------
+
+export async function getGithubActivity(token: string) {
+  const user = await getGithubUser(token);
+
+  return githubFetch(
+    token,
+    `/users/${user.login}/events?per_page=100`
+  );
 }
